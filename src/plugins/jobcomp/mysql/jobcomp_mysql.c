@@ -120,25 +120,14 @@ static int _mysql_jobcomp_check_tables()
 extern int init(void)
 {
 	char *location = slurm_conf.job_comp_loc;
-	int i = 0;
 	verbose("%s loaded", plugin_name);
 
-	if (!location)
-		db_name = xstrdup(slurm_conf.job_comp_loc);
-	else {
-		while (location[i]) {
-			if (location[i] == '.' || location[i] == '/') {
-				debug("%s doesn't look like a database name using %s",
-				      location, DEFAULT_JOB_COMP_DB);
-				break;
-			}
-			i++;
-		}
-		if (location[i])
-			db_name = xstrdup(DEFAULT_JOB_COMP_DB);
-		else
-			db_name = xstrdup(location);
-	}
+	if (xstrchr(location, '.') || xstrchr(location, '/')) {
+		debug("%s doesn't look like a database name using %s",
+		      location, DEFAULT_JOB_COMP_DB);
+		db_name = xstrdup(DEFAULT_JOB_COMP_DB);
+	} else
+		db_name = xstrdup(location);
 
 	return SLURM_SUCCESS;
 }
