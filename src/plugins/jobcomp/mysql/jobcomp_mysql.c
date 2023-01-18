@@ -73,6 +73,7 @@ const char plugin_name[] = "Job completion MYSQL plugin";
 const char plugin_type[] = "jobcomp/mysql";
 const uint32_t plugin_version = SLURM_VERSION_NUMBER;
 
+static char *db_name = NULL;
 mysql_conn_t *jobcomp_mysql_conn = NULL;
 
 char *jobcomp_table = "jobcomp_table";
@@ -118,38 +119,16 @@ static int _mysql_jobcomp_check_tables()
  */
 extern int init(void)
 {
-	verbose("%s loaded", plugin_name);
-
-	return SLURM_SUCCESS;
-}
-
-extern int fini(void)
-{
-	if (jobcomp_mysql_conn) {
-		destroy_mysql_conn(jobcomp_mysql_conn);
-		jobcomp_mysql_conn = NULL;
-	}
-	return SLURM_SUCCESS;
-}
-
-extern int jobcomp_p_set_location(void)
-{
 	char *location = slurm_conf.job_comp_loc;
-	mysql_db_info_t *db_info;
-	int rc = SLURM_SUCCESS;
-	char *db_name = NULL;
 	int i = 0;
-
-	if (jobcomp_mysql_conn && mysql_db_ping(jobcomp_mysql_conn) == 0)
-		return SLURM_SUCCESS;
+	verbose("%s loaded", plugin_name);
 
 	if (!location)
 		db_name = xstrdup(slurm_conf.job_comp_loc);
 	else {
-		while(location[i]) {
+		while (location[i]) {
 			if (location[i] == '.' || location[i] == '/') {
-				debug("%s doesn't look like a database "
-				      "name using %s",
+				debug("%s doesn't look like a database name using %s",
 				      location, DEFAULT_JOB_COMP_DB);
 				break;
 			}
@@ -161,6 +140,28 @@ extern int jobcomp_p_set_location(void)
 			db_name = xstrdup(location);
 	}
 
+	return SLURM_SUCCESS;
+}
+
+extern int fini(void)
+{
+	xfree(db_name);
+
+	if (jobcomp_mysql_conn) {
+		destroy_mysql_conn(jobcomp_mysql_conn);
+		jobcomp_mysql_conn = NULL;
+	}
+	return SLURM_SUCCESS;
+}
+
+extern int jobcomp_p_set_location(void)
+{
+	mysql_db_info_t *db_info;
+	int rc = SLURM_SUCCESS;
+
+	if (jobcomp_mysql_conn && mysql_db_ping(jobcomp_mysql_conn) == 0)
+		return SLURM_SUCCESS;
+
 	debug2("mysql_connect() called for db %s", db_name);
 	/* Just make sure our connection is gone. */
 	fini();
@@ -169,7 +170,6 @@ extern int jobcomp_p_set_location(void)
 	db_info = create_mysql_db_info(SLURM_MYSQL_PLUGIN_JC);
 
 	mysql_db_get_db_connection(jobcomp_mysql_conn, db_name, db_info);
-	xfree(db_name);
 
 	rc = _mysql_jobcomp_check_tables();
 
