@@ -118,16 +118,7 @@ static int _mysql_jobcomp_check_tables()
  */
 extern int init(void)
 {
-	static int first = 1;
-
-	if (first) {
-		/* since this can be loaded from many different places
-		   only tell us once. */
-		verbose("%s loaded", plugin_name);
-		first = 0;
-	} else {
-		debug4("%s loaded", plugin_name);
-	}
+	verbose("%s loaded", plugin_name);
 
 	return SLURM_SUCCESS;
 }
