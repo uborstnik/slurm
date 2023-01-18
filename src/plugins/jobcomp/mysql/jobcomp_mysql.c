@@ -143,7 +143,7 @@ extern int fini(void)
 	return SLURM_SUCCESS;
 }
 
-extern int jobcomp_p_set_location(void)
+static int _reset_db(void)
 {
 	mysql_db_info_t *db_info;
 	int rc = SLURM_SUCCESS;
@@ -171,6 +171,11 @@ extern int jobcomp_p_set_location(void)
 	return rc;
 }
 
+extern int jobcomp_p_set_location(void)
+{
+	return _reset_db();
+}
+
 extern int jobcomp_p_log_record(job_record_t *job_ptr)
 {
 	int rc = SLURM_SUCCESS;
@@ -181,7 +186,7 @@ extern int jobcomp_p_log_record(job_record_t *job_ptr)
 	time_t start_time, end_time;
 
 	if (!jobcomp_mysql_conn || mysql_db_ping(jobcomp_mysql_conn) != 0) {
-		if (jobcomp_p_set_location())
+		if (_reset_db())
 			return SLURM_ERROR;
 	}
 
@@ -286,7 +291,7 @@ extern List jobcomp_p_get_jobs(slurmdb_job_cond_t *job_cond)
 	List job_list = NULL;
 
 	if (!jobcomp_mysql_conn || mysql_db_ping(jobcomp_mysql_conn) != 0) {
-		if (jobcomp_p_set_location())
+		if (_reset_db())
 			return job_list;
 	}
 
