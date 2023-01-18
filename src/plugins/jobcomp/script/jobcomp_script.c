@@ -615,7 +615,7 @@ extern int init(void)
 	return SLURM_SUCCESS;
 }
 
-extern int jobcomp_p_set_location(void)
+extern int jobcomp_p_rotate(void)
 {
 	return SLURM_SUCCESS;
 }

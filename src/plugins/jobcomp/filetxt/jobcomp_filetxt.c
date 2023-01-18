@@ -86,7 +86,7 @@ const uint32_t plugin_version	= SLURM_VERSION_NUMBER;
 		"WcKey=%s Cluster=%s SubmitTime=%s EligibleTime=%s%s%s "\
 		"DerivedExitCode=%s ExitCode=%s \n"
 
-extern int jobcomp_p_set_location(void);
+extern int jobcomp_p_rotate(void);
 
 /* File descriptor used for logging */
 static pthread_mutex_t  file_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -106,7 +106,7 @@ int init ( void )
 
 	log_name = xstrdup(location);
 
-	jobcomp_p_set_location();
+	jobcomp_p_rotate();
 
 	return SLURM_SUCCESS;
 }
@@ -124,7 +124,7 @@ int fini ( void )
  * logging API.
  */
 
-extern int jobcomp_p_set_location(void)
+extern int jobcomp_p_rotate(void)
 {
 	int rc = SLURM_SUCCESS;
 

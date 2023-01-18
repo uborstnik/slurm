@@ -173,7 +173,7 @@ static int _reset_db(void)
 	return rc;
 }
 
-extern int jobcomp_p_set_location(void)
+extern int jobcomp_p_rotate(void)
 {
 	return _reset_db();
 }

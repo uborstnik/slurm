@@ -1304,7 +1304,7 @@ static void *_slurmctld_signal_hand(void *no_data)
 			slurmscriptd_update_log_level(
 				slurm_conf.slurmctld_debug, true);
 			unlock_slurmctld(conf_write_lock);
-			if (jobcomp_g_set_location() != SLURM_SUCCESS)
+			if (jobcomp_g_rotate() != SLURM_SUCCESS)
 				error("%s: JobComp set location operation failed on SIGUSR2",
 				      __func__);
 			break;

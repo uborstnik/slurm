@@ -188,7 +188,7 @@ extern int fini(void)
  * logging API.
  */
 
-extern int jobcomp_p_set_location(void)
+extern int jobcomp_p_rotate(void)
 {
 	return SLURM_SUCCESS;
 }
