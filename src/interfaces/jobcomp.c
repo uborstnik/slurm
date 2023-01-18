@@ -51,7 +51,7 @@
 #include "src/slurmctld/slurmctld.h"
 
 typedef struct slurm_jobcomp_ops {
-	int          (*rotate)    ( void );
+	void         (*rotate)    ( void );
 	int          (*job_write) ( job_record_t *job_ptr);
 	List         (*get_jobs)  ( slurmdb_job_cond_t *params );
 } slurm_jobcomp_ops_t;
@@ -171,13 +171,10 @@ extern List jobcomp_g_get_jobs(slurmdb_job_cond_t *job_cond)
 	return job_list;
 }
 
-extern int jobcomp_g_rotate(void)
+extern void jobcomp_g_rotate(void)
 {
-	int retval = SLURM_SUCCESS;
-
 	slurm_mutex_lock(&context_lock);
 	xassert(g_context);
-	retval = (*(ops.rotate))();
+	(*(ops.rotate))();
 	slurm_mutex_unlock(&context_lock);
-	return retval;
 }

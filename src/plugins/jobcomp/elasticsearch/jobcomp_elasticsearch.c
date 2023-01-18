@@ -810,9 +810,9 @@ extern int fini(void)
  * The remainder of this file implements the standard Slurm job completion
  * logging API.
  */
-extern int jobcomp_p_rotate(void)
+extern void jobcomp_p_rotate(void)
 {
-	return SLURM_SUCCESS;
+	return;
 }
 
 /*

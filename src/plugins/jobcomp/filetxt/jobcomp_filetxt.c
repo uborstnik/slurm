@@ -86,7 +86,7 @@ const uint32_t plugin_version	= SLURM_VERSION_NUMBER;
 		"WcKey=%s Cluster=%s SubmitTime=%s EligibleTime=%s%s%s "\
 		"DerivedExitCode=%s ExitCode=%s \n"
 
-extern int jobcomp_p_rotate(void);
+extern void jobcomp_p_rotate(void);
 
 /* File descriptor used for logging */
 static pthread_mutex_t  file_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -124,21 +124,17 @@ int fini ( void )
  * logging API.
  */
 
-extern int jobcomp_p_rotate(void)
+extern void jobcomp_p_rotate(void)
 {
-	int rc = SLURM_SUCCESS;
-
 	slurm_mutex_lock( &file_lock );
 	if (job_comp_fd >= 0)
 		close(job_comp_fd);
 	job_comp_fd = open(log_name, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (job_comp_fd == -1) {
 		fatal("open %s: %m", log_name);
-		rc = SLURM_ERROR;
 	} else
 		fchmod(job_comp_fd, 0644);
 	slurm_mutex_unlock( &file_lock );
-	return rc;
 }
 
 /* This is a variation of slurm_make_time_str() in src/common/parse_time.h

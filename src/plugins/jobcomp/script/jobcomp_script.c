@@ -615,9 +615,9 @@ extern int init(void)
 	return SLURM_SUCCESS;
 }
 
-extern int jobcomp_p_rotate(void)
+extern void jobcomp_p_rotate(void)
 {
-	return SLURM_SUCCESS;
+	return;
 }
 
 extern int jobcomp_p_log_record(job_record_t *record)
