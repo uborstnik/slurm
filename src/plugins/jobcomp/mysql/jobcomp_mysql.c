@@ -175,7 +175,7 @@ static int _reset_db(void)
 
 extern int jobcomp_p_rotate(void)
 {
-	return _reset_db();
+	return SLURM_SUCCESS;
 }
 
 extern int jobcomp_p_log_record(job_record_t *job_ptr)
