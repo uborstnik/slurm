@@ -97,6 +97,13 @@ static int              job_comp_fd = -1;
  */
 int init ( void )
 {
+	char *location = slurm_conf.job_comp_loc;
+
+	if (!location)
+		return SLURM_ERROR;
+
+	log_name = xstrdup(location);
+
 	return SLURM_SUCCESS;
 }
 
@@ -115,21 +122,14 @@ int fini ( void )
 
 extern int jobcomp_p_set_location(void)
 {
-	char *location = slurm_conf.job_comp_loc;
 	int rc = SLURM_SUCCESS;
-
-	if (location == NULL) {
-		return SLURM_ERROR;
-	}
-	xfree(log_name);
-	log_name = xstrdup(location);
 
 	slurm_mutex_lock( &file_lock );
 	if (job_comp_fd >= 0)
 		close(job_comp_fd);
-	job_comp_fd = open(location, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	job_comp_fd = open(log_name, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (job_comp_fd == -1) {
-		fatal("open %s: %m", location);
+		fatal("open %s: %m", log_name);
 		rc = SLURM_ERROR;
 	} else
 		fchmod(job_comp_fd, 0644);
