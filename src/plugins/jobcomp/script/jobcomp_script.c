@@ -588,6 +588,19 @@ extern int init(void)
 
 	slurm_mutex_lock(&thread_flag_mutex);
 
+	jobcomp_script = xstrdup(slurm_conf.job_comp_loc);
+
+	if (!jobcomp_script) {
+		error("jobcomp/script: JobCompLoc needs to be set");
+		slurm_mutex_unlock(&thread_flag_mutex);
+		return SLURM_ERROR;
+	}
+
+	if (_check_script_permissions(jobcomp_script) != SLURM_SUCCESS) {
+		slurm_mutex_unlock(&thread_flag_mutex);
+		return SLURM_ERROR;
+	}
+
 	if (comp_list) {
 		slurm_mutex_unlock(&thread_flag_mutex);
 		return SLURM_ERROR;
@@ -602,20 +615,8 @@ extern int init(void)
 	return SLURM_SUCCESS;
 }
 
-/* Set the location of the script to run*/
 extern int jobcomp_p_set_location(void)
 {
-	char *location = slurm_conf.job_comp_loc;
-	if (location == NULL) {
-		return error("jobcomp/script JobCompLoc needs to be set");
-	}
-
-	if (_check_script_permissions(location) != SLURM_SUCCESS)
-		return SLURM_ERROR;
-
-	xfree(jobcomp_script);
-	jobcomp_script = xstrdup(location);
-
 	return SLURM_SUCCESS;
 }
 
