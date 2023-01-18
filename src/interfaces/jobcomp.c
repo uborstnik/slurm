@@ -128,8 +128,6 @@ extern int jobcomp_g_init(void)
 	}
 
 done:
-	if (g_context)
-		retval = (*(ops.set_loc))();
 	slurm_mutex_unlock( &context_lock );
 	return retval;
 }

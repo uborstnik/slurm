@@ -73,6 +73,8 @@ const char plugin_name[] = "Job completion MYSQL plugin";
 const char plugin_type[] = "jobcomp/mysql";
 const uint32_t plugin_version = SLURM_VERSION_NUMBER;
 
+static int _reset_db(void);
+
 static char *db_name = NULL;
 mysql_conn_t *jobcomp_mysql_conn = NULL;
 
@@ -129,7 +131,7 @@ extern int init(void)
 	} else
 		db_name = xstrdup(location);
 
-	return SLURM_SUCCESS;
+	return _reset_db();
 }
 
 extern int fini(void)
