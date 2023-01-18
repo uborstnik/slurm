@@ -128,8 +128,6 @@ struct job_node {
 char *save_state_file = "elasticsearch_state";
 char *log_url = NULL;
 
-static pthread_cond_t location_cond = PTHREAD_COND_INITIALIZER;
-static pthread_mutex_t location_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t save_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t pend_jobs_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t job_handler_thread;
@@ -252,13 +250,6 @@ static int _index_job(const char *jobcomp)
 	int rc = SLURM_SUCCESS;
 	char *token = NULL;
 
-	slurm_mutex_lock(&location_mutex);
-	if (log_url == NULL) {
-		error("%s: JobCompLoc parameter not configured", plugin_type);
-		slurm_mutex_unlock(&location_mutex);
-		return SLURM_ERROR;
-	}
-
 	if (curl_global_init(CURL_GLOBAL_ALL) != 0) {
 		error("%s: curl_global_init: %m", plugin_type);
 		rc = SLURM_ERROR;
@@ -341,7 +332,6 @@ cleanup_easy_init:
 	curl_easy_cleanup(curl_handle);
 cleanup_global_init:
 	curl_global_cleanup();
-	slurm_mutex_unlock(&location_mutex);
 	return rc;
 }
 
@@ -730,14 +720,7 @@ extern void *_process_jobs(void *x)
 {
 	ListIterator iter;
 	struct job_node *jnode = NULL;
-	struct timespec ts = {0, 0};
 	time_t now;
-
-	/* Wait for jobcomp_p_set_location log_url setup. */
-	slurm_mutex_lock(&location_mutex);
-	ts.tv_sec = time(NULL) + INDEX_RETRY_INTERVAL;
-	slurm_cond_timedwait(&location_cond, &location_mutex, &ts);
-	slurm_mutex_unlock(&location_mutex);
 
 	while (!thread_shutdown) {
 		int success_cnt = 0, fail_cnt = 0, wait_retry_cnt = 0;
@@ -784,6 +767,13 @@ extern int init(void)
 {
 	int rc;
 
+	log_url = xstrdup(slurm_conf.job_comp_loc);
+
+	if (!log_url) {
+		error("%s: JobCompLoc parameter not configured", plugin_type);
+		return SLURM_ERROR;
+	}
+
 	if ((rc = data_init())) {
 		error("%s: unable to init data structures: %s",
 		      __func__, slurm_strerror(rc));
@@ -822,22 +812,7 @@ extern int fini(void)
  */
 extern int jobcomp_p_set_location(void)
 {
-	char *location = slurm_conf.job_comp_loc;
-	int rc = SLURM_SUCCESS;
-
-	if (location == NULL) {
-		error("%s: JobCompLoc parameter not configured", plugin_type);
-		return SLURM_ERROR;
-	}
-
-	slurm_mutex_lock(&location_mutex);
-	if (log_url)
-		xfree(log_url);
-	log_url = xstrdup(location);
-	slurm_cond_broadcast(&location_cond);
-	slurm_mutex_unlock(&location_mutex);
-
-	return rc;
+	return SLURM_SUCCESS;
 }
 
 /*
