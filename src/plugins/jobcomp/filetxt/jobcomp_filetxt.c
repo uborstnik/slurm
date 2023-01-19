@@ -99,12 +99,10 @@ static int              job_comp_fd = -1;
  */
 int init ( void )
 {
-	char *location = slurm_conf.job_comp_loc;
+	if (!slurm_conf.job_comp_loc)
+		slurm_conf.job_comp_loc = xstrdup(DEFAULT_JOB_COMP_LOC);
 
-	if (!location)
-		return SLURM_ERROR;
-
-	log_name = xstrdup(location);
+	log_name = xstrdup(slurm_conf.job_comp_loc);
 
 	jobcomp_p_rotate();
 

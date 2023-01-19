@@ -121,8 +121,13 @@ static int _mysql_jobcomp_check_tables()
  */
 extern int init(void)
 {
-	char *location = slurm_conf.job_comp_loc;
+	char *location;
 	verbose("%s loaded", plugin_name);
+
+	if (!slurm_conf.job_comp_loc)
+		slurm_conf.job_comp_loc = xstrdup(DEFAULT_JOB_COMP_DB);
+
+	location = slurm_conf.job_comp_loc;
 
 	if (xstrchr(location, '.') || xstrchr(location, '/')) {
 		debug("%s doesn't look like a database name using %s",
