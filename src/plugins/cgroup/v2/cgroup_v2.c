@@ -178,11 +178,13 @@ static char *_get_relative_cg_path(const char *pid)
 static char *_get_self_cg_path()
 {
 	char *buf, *start = NULL, *p, *ret = NULL;
-	size_t sz;
+	char *relative_cg_path = NULL;
+	size_t sz, relative_cg_len;
 
 	if (common_file_read_content("/proc/self/cgroup", &buf, &sz) !=
 	    SLURM_SUCCESS)
 		fatal("cannot read /proc/self/cgroup contents: %m");
+	debug4("Self cgroup data is %s.", buf);
 
 	/*
 	 * In Unified mode there will be just one line containing the path
@@ -196,6 +198,10 @@ static char *_get_self_cg_path()
 	 * If we have multiple slurmd, we will likely have one unit file per
 	 * node, and the path takes the name of the service file, e.g:
 	 * /sys/fs/cgroup/system.slice/slurmd-<nodename>.service/
+	 *
+	 * If the cgroup path contains .. then cgroup namespaces are
+	 * in use.  In this case remove the relative path to the root
+	 * of the cgroup namespace from our path.
 	 */
 	if ((p = xstrchr(buf, ':'))) {
 		if ((p + 2) < (buf + sz - 1))
@@ -205,8 +211,26 @@ static char *_get_self_cg_path()
 	if (start && (*start != '\0')) {
 		if ((p = xstrchr(start, '\n')))
 			*p = '\0';
-		xstrfmtcat(ret, "%s%s",
-			   slurm_cgroup_conf.cgroup_mountpoint, start);
+		debug3("Found self cgroup path %s.", start);
+		if (xstrstr(start, "..")) {
+			debug3("Relative path to cgroup namespace root found; removing the relative path prefix.");
+			relative_cg_path = _get_relative_cg_path("self");
+			if (xstrstr(start, relative_cg_path)) {
+				relative_cg_len = strlen(relative_cg_path);
+				xstrfmtcat(ret, "%s%s",
+					slurm_cgroup_conf.cgroup_mountpoint,
+					start + relative_cg_len);
+				debug2("Using %s as my cgroup path.", ret);
+			} else {
+				error("Did not find relative path to cgroup namespace root prefix %s in self cgroup path %s.",
+					relative_cg_path, start);
+			}
+			xfree(relative_cg_path);
+		} else {
+			debug2("Using constructed cgroup path %s + %s.", slurm_cgroup_conf.cgroup_mountpoint, start);
+			xstrfmtcat(ret, "%s%s",
+				   slurm_cgroup_conf.cgroup_mountpoint, start);
+		}
 	}
 
 	xfree(buf);
