@@ -246,7 +246,12 @@ static char *_get_self_cg_path()
  * But in containerized environments it could look like:
  * "0::/docker.slice/docker-<some UUID>.scope/init.scope"
  *
- * This function just strips the "0::" and "init.scope" portions.
+ * If cgroup namespaces are in use it could look like:
+ * 0::/../../../../cont1/init.scope
+ *
+ * This function just strips the "0::" and "init.scope" portions and,
+ * if cgroup namespaces are in use, removes the relative path to the
+ * root of the cgroup namespace.
  *
  * In normal systems the final path will look like this:
  * /sys/fs/cgroup[/]
@@ -254,15 +259,20 @@ static char *_get_self_cg_path()
  * In containerized environments it will look like:
  * /sys/fs/cgroup[/docker.slice/docker-<some UUID>.scope]
  *
+ * In cgroup namespaces it will look like:
+ * /sys/fs/cgroup/init.scope
+ *
  */
 static char *_get_init_cg_path()
 {
 	char *buf, *start = NULL, *p, *ret = NULL;
-	size_t sz;
+	char *relative_cg_path = NULL;
+	size_t sz, relative_cg_len;
 
 	if (common_file_read_content("/proc/1/cgroup", &buf, &sz) !=
 	    SLURM_SUCCESS)
 		fatal("cannot read /proc/1/cgroup contents: %m");
+	debug4("Init cgroup data is %s.", buf);
 
 	/*
 	 * In Unified mode there will be just one line containing the path
@@ -282,7 +292,22 @@ static char *_get_init_cg_path()
 		if ((p = xstrchr(start, '\n')))
 			*p = '\0';
 		p = xdirname(start);
-		if (!xstrcmp(p, "/"))
+		debug3("Found PID 1 cgroup path %s.", p);
+		if (xstrstr(p, "..")) {
+			debug3("Relative path to cgroup namespace root found; removing the relative path prefix.");
+			relative_cg_path = _get_relative_cg_path("1");
+			if (xstrstr(p, relative_cg_path)) {
+				relative_cg_len = strlen(relative_cg_path);
+				xstrfmtcat(ret, "%s%s",
+					slurm_cgroup_conf.cgroup_mountpoint,
+					p + relative_cg_len);
+				debug2("Using %s as init cgroup path.", ret);
+			} else {
+				error("Did not find relative path to cgroup namespace root prefix %s in init cgroup path %s.",
+					relative_cg_path, start);
+			}
+			xfree(relative_cg_path);
+		} else if (!xstrcmp(p, "/"))
 			xstrfmtcat(ret, "%s",
 				   slurm_cgroup_conf.cgroup_mountpoint);
 		else
