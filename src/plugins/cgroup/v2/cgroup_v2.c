@@ -123,6 +123,53 @@ extern int cgroup_p_task_addto(cgroup_ctl_type_t ctl, stepd_step_rec_t *step,
  */
 
 /*
+ * Get the relative path to the root of the cgroup namespace by
+ * reading /proc/PID/mountinfo for the given PID.
+ *
+ * In the root cgroup namespace (most environments) we expect that the
+ * cgroup2 filesystem is mounted on /, such as:
+ * 34 25 0:29 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime shared:9 - cgroup2 cgroup2 rw
+ *
+ * If the given PID is in a cgroup namespace, then it could look like:
+ * 3526 3512 0:29 /../../../../cont1 /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - cgroup2 cgroup2 rw
+ *
+ * See man:cgroup_namespaces(7).
+ *
+ */
+static char *_get_relative_cg_path(const char *pid)
+{
+	char *buf, *p, *ret = NULL, *procfile=NULL, *mount=NULL;
+	size_t sz, name_len;
+	int i;
+
+	xstrfmtcat(procfile, "/proc/%s/mountinfo", pid);
+	if (common_file_read_content(procfile, &buf, &sz) !=
+	    SLURM_SUCCESS)
+		fatal("cannot read /proc/?/mountinfo contents: %m");
+	debug4("%s contents: %s", procfile, buf);
+
+	if (!(p = xstrstr(buf, "cgroup2 cgroup2"))) {
+		fatal("Did not find cgroup2 mount point in %s", procfile);
+	}
+
+	*p = '\0';
+	if ((mount = xstrrchr(buf, '\n')) == NULL)
+		mount = buf;
+	debug4("First 8 data of cgroup2 line in %s is %s.", procfile, mount);
+
+	p = mount;
+	for (i=0; (i < 4) && (p != NULL); i++)
+		p = strtok((i==0)?mount:NULL, " ");
+	if (p == NULL)
+		fatal("Could not parse cgroup2 mount point in %s.", procfile);
+	ret = xstrdup(p);
+	debug2("Relative path to root of cgroup namespace is %s.", ret);
+	xfree(buf);
+	xfree(procfile);
+	return ret;
+}
+
+/*
  * The cgroup v2 documented way to know which is the process root in the cgroup
  * hierarchy is just to read /proc/self/cgroup. In Unified hierarchies this
  * must contain only one line. If there are more lines this would mean we are
