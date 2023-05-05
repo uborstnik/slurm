@@ -2,6 +2,7 @@
  *  cgroup_v2.c - Cgroup v2 plugin
  *****************************************************************************
  *  Copyright (C) 2021 SchedMD LLC
+ *  Copyright (C) 2023 Urban Borstnik, ETH Zurich
  *  Written by Felip Moll <felip.moll@schedmd.com>
  *
  *  This file is part of Slurm, a resource management program.
