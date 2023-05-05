@@ -324,7 +324,7 @@ Resume a previously suspended job.
 The job_list argument is a comma separated list of job IDs.
 Also see \fBsuspend\fR.
 
-\fBNOTE:\fR A suspended job releases its CPUs for allocation to other jobs.
+\fBNOTE\fR: A suspended job releases its CPUs for allocation to other jobs.
 Resuming a previously suspended job may result in multiple jobs being
 allocated the same CPUs, which could trigger gang scheduling with some
 configurations or severe degradation in performance with other configurations.
@@ -1166,7 +1166,7 @@ Change the job's requested threads count.
 .IP
 
 .TP
-\fBIRequeue\fR={0|1}
+\fBRequeue\fR={0|1}
 Stipulates whether a job should be requeued after a node failure: 0
 for no, 1 for yes.
 .IP

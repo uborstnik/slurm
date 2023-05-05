@@ -324,7 +324,7 @@ static int _fill_job_desc_from_opts(slurm_opt_t *opt, job_desc_msg_t *desc)
 		return -1;
 
 	desc->array_inx = xstrdup(sbopt->array_inx);
-	desc->batch_features = sbopt->batch_features;
+	desc->batch_features = xstrdup(sbopt->batch_features);
 	desc->container = xstrdup(opt->container);
 
 	desc->wait_all_nodes = sbopt->wait_all_nodes;
@@ -364,8 +364,10 @@ static int _fill_job_desc_from_opts(slurm_opt_t *opt, job_desc_msg_t *desc)
 	desc->user_id = SLURM_AUTH_NOBODY;
 	desc->group_id = SLURM_AUTH_NOBODY;
 
-	desc->argc     = opt->argc;
-	desc->argv     = opt->argv;
+	desc->argc = opt->argc;
+	desc->argv = xcalloc(opt->argc, sizeof(*desc->argv));
+	for (int i = 0; i < opt->argc; i++)
+		desc->argv[i] = xstrdup(opt->argv[i]);
 	desc->std_err  = xstrdup(opt->efname);
 	desc->std_in   = xstrdup(opt->ifname);
 	desc->std_out  = xstrdup(opt->ofname);

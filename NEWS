@@ -1,6 +1,92 @@
 This file describes changes in recent versions of Slurm. It primarily
 documents those changes that are of interest to users and administrators.
 
+* Changes in Slurm 23.02.2
+==========================
+ -- Fix regression introduced with the migration to interfaces which caused
+    sshare to core dump. Sshare now initialized the priority context correctly
+    when calculating with PriorityFlags=NO_FAIR_TREE.
+ -- Fix IPMI DCMI sensor initialization.
+ -- For the select/cons_tres plugin, improve the best effort GPU to core
+    binding, for requests with per job task count (-n) and GPU (--gpus)
+    specification.
+ -- scrontab - don't update the cron job tasks if the whole crontab file is
+    left untouched after opening it with "scrontab -e".
+ -- mpi/pmix - avoid crashing when running PMIx v5.0 branch with shmem support.
+ -- Fix building switch topology after a reconfig with the correct nodes.
+ -- Allow a dynamic node to register with a reason, using --conf, when the
+    state is DOWN or DRAIN.
+ -- Fix slurmd running tasks before RPC Prolog is run.
+ -- Fix slurmd deadlock iff the controller were to give a bad alias_list.
+ -- slurmrestd - correctly process job submission field "exclusive" with boolean
+    True or False.
+ -- slurmrestd - correctly process job submission field "exclusive" with strings
+    "true" or "false".
+ -- slurmctld/step_mgr - prevent non-allocatable steps from decrementing values
+    that weren't previously incremented when trying to allocate them.
+ -- auth/jwt - Fix memory leak in slurmctld with 'scontrol token'.
+ -- Fix shared gres (shard/mps) leak when using --tres-per-task
+ -- Fix sacctmgr segfault when listing accounts with coordinators.
+ -- slurmrestd - improve error logging when client connections experience
+    polling errors.
+ -- slurmrestd - improve handling of sockets in different states of shutdown to
+    avoid infinite poll() loop causing a thread to max CPU usage until process
+    is killed.
+ -- slurmrestd - avoid possible segfault caused by race condition of already
+    completed connections.
+ -- mpi/cray_shasta - Fix PMI shared secret for hetjobs.
+ -- gpu/oneapi - Fix CPU affinity handling.
+ -- Fix dynamic nodes powering up when already up after adding/deleting nodes
+    when using power_save logic.
+ -- slurmrestd - Add support for setting max connections.
+ -- data_parser/v0.0.39 - fix sacct --json matching associations from a
+    different cluster.
+ -- Fix segfault when clearing reqnodelist of a pending job.
+ -- Fix memory leak of argv when submitting jobs via slurmrestd or CLI commands.
+ -- slurmrestd - correct miscalculation of job argument count that could cause
+    memory leak when job submission fails.
+ -- slurmdbd - add warning on startup if max_allowed_packet is too small.
+ -- gpu/nvml - Remove E-cores from NVML's cpu affinity bitmap when
+    "allow_ecores" is not set in SlurmdParameters.
+ -- Fix regression from 23.02.0rc1 causing a FrontEnd slurmd to assert fail on
+    startup and don't be configured with the appropriate port.
+ -- Fix dynamic nodes not being sorted and not being included in topology,
+    which resulted in suboptimal dynamic node selection for jobs.
+ -- Fix slurmstepd crash due to potential division by zero (SIGFPE) in certain
+    edge-cases using the PMIx plugin.
+ -- Fix issue with PMIx HetJob requests where certain use-cases would end up
+    with communication errors due to incorrect PMIx hostname info setup.
+ -- openapi/v0.0.39 - revert regression in job update requests to accept job
+    description for changes instead of requiring job description in "job" field.
+ -- Fix regression in 23.02.0rc1 that caused a step to crash with a bad
+    --gpu-bind=single request.
+ -- job_container/tmpfs - skip more in-depth attempt to clean up the base path
+    when not required.  This prevents unhelpful, and possibly misleading, debug2
+    messages when not using the new "shared" mode.
+ -- gpu/nvml - Fix gpu usage when graphics processes are running on the gpu.
+ -- slurmrestd - fix regression where "exclusive" field was removed from job
+    descriptions and submissions.
+ -- Fix issue where requeued jobs had bad gres allocations leading to gres not
+    being deallocated at the end of the job, preventing other jobs from using
+    those resources.
+ -- Fix regression in 23.02.0rc1 which caused incorrect values for
+    SLURM_TASKS_PER_NODE when the job requests --ntasks-per-node and --exclusive
+    or --ntasks-per-core=1 (or CR_ONE_TASK_PER_CORE) and without requesting
+    --ntasks. SLURM_TASKS_PER_NODE is used by mpirun, so this regression
+    caused mpirun to launch the wrong number of tasks and to sometimes fail to
+    launch tasks.
+ -- Prevent jobs running on shards from being canceled on slurmctld restart.
+ -- Fix SPANK prolog and epilog hooks that rely on slurm_init() for access to
+    internal Slurm API calls.
+ -- oci.conf - Populate %m pattern with ContainerPath or SlurmdSpoolDir if
+    ContainerPath is not configured.
+ -- Removed zero padding for numeric values in container spool directory names.
+ -- Avoid creating an unused task-4294967295 directory in container spooldir.
+ -- Cleanup container step directories at step completion.
+ -- sacctmgr - Fix segfault when printing empty tres.
+ -- srun - fix communication issue that prevented slurmctld from connecting to
+    an srun running outside of a compute node.
+
 * Changes in Slurm 23.02.1
 ==========================
  -- job_container/tmpfs - cleanup job container even if namespace mount is
@@ -457,6 +543,9 @@ documents those changes that are of interest to users and administrators.
  -- New command scrun has been added. scrun acts as an Open Container Initiative
     (OCI) runtime proxy to run containers seamlessly via Slurm.
 
+* Changes in Slurm 22.05.10
+===========================
+
 * Changes in Slurm 22.05.9
 ==========================
  -- Allocate correct number of sockets when requesting gres and running with
@@ -482,6 +571,13 @@ documents those changes that are of interest to users and administrators.
  -- sched/backfill - fix deleted planned node staying in planned node bitmap.
  -- Fix nodes remaining as PLANNED after slurmctld save state recovery.
  -- Fix regression in 22.05.0rc1 that broke Nodes=ALL in a NodeSet.
+ -- Fix incorrect memory constraint when receiving a job from 20.11 that uses
+    cpu count for memory calculation.
+ -- openapi/v0.0.[36-38] - avoid possible crash from jobs submitted with argv.
+ -- openapi/v0.0.[36-38] - avoid possible crash from rejected jobs submitted
+    with batch_features.
+ -- srun - fix regression in 22.05.7 that prevented slurmctld from connecting
+    to an srun running outside of a compute node.
 
 * Changes in Slurm 22.05.8
 ==========================

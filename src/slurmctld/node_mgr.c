@@ -4997,6 +4997,8 @@ extern int create_dynamic_reg_node(slurm_msg_t *msg)
 	slurm_addr_t addr;
 	char *comm_name = NULL;
 	int state_val = NODE_STATE_UNKNOWN;
+	s_p_hashtbl_t *node_hashtbl = NULL;
+	slurm_conf_node_t *conf_node = NULL;
 	slurm_node_registration_status_msg_t *reg_msg = msg->data;
 
 	xassert(verify_lock(JOB_LOCK, WRITE_LOCK));
@@ -5009,9 +5011,6 @@ extern int create_dynamic_reg_node(slurm_msg_t *msg)
 	}
 
 	if (reg_msg->dynamic_conf) {
-		slurm_conf_node_t *conf_node;
-		s_p_hashtbl_t *node_hashtbl = NULL;
-
 		if (!(conf_node =
 		      slurm_conf_parse_nodeline(reg_msg->dynamic_conf,
 						&node_hashtbl))) {
@@ -5025,8 +5024,6 @@ extern int create_dynamic_reg_node(slurm_msg_t *msg)
 		if (conf_node->state)
 			state_val = state_str2int(conf_node->state,
 						  conf_node->nodenames);
-
-		s_p_hashtbl_destroy(node_hashtbl);
 	} else {
 		config_ptr = create_config_record();
 		config_ptr->boards = reg_msg->boards;
@@ -5069,7 +5066,10 @@ extern int create_dynamic_reg_node(slurm_msg_t *msg)
 	/* Handle DOWN and DRAIN, otherwise make the node idle */
 	if ((state_val == NODE_STATE_DOWN) ||
 	    (state_val & NODE_STATE_DRAIN)) {
-		_make_node_down(node_ptr, time(NULL));
+		time_t now = time(NULL);
+		if (conf_node && conf_node->reason)
+			set_node_reason(node_ptr, conf_node->reason, now);
+		_make_node_down(node_ptr, now);
 		node_ptr->node_state = state_val;
 	} else
 		make_node_idle(node_ptr, NULL);
@@ -5082,6 +5082,8 @@ extern int create_dynamic_reg_node(slurm_msg_t *msg)
 	power_save_exc_setup();
 	select_g_reconfigure();
 
+	s_p_hashtbl_destroy(node_hashtbl);
+
 	return SLURM_SUCCESS;
 }
 
@@ -5092,6 +5094,26 @@ static void _remove_node_from_features(node_record_t *node_ptr)
 	update_feature_list(avail_feature_list, NULL, node_bitmap);
 	update_feature_list(active_feature_list, NULL, node_bitmap);
 	FREE_NULL_BITMAP(node_bitmap);
+}
+
+/*
+ * Remove from all global bitmaps
+ *
+ * Sync with bitmaps in _init_bitmaps()
+ */
+static void _remove_node_from_all_bitmaps(node_record_t *node_ptr)
+{
+	bit_clear(avail_node_bitmap, node_ptr->index);
+	bit_clear(bf_ignore_node_bitmap, node_ptr->index);
+	bit_clear(booting_node_bitmap, node_ptr->index);
+	bit_clear(cg_node_bitmap, node_ptr->index);
+	bit_clear(cloud_node_bitmap, node_ptr->index);
+	bit_clear(future_node_bitmap, node_ptr->index);
+	bit_clear(idle_node_bitmap, node_ptr->index);
+	bit_clear(power_node_bitmap, node_ptr->index);
+	bit_clear(rs_node_bitmap, node_ptr->index);
+	bit_clear(share_node_bitmap, node_ptr->index);
+	bit_clear(up_node_bitmap, node_ptr->index);
 }
 
 /*
@@ -5118,11 +5140,7 @@ static int _delete_node(char *name)
 		return ESLURM_NODES_BUSY;
 	}
 
-	bit_clear(idle_node_bitmap, node_ptr->index);
-	bit_clear(avail_node_bitmap, node_ptr->index);
-	bit_clear(cloud_node_bitmap, node_ptr->index);
-	bit_clear(future_node_bitmap, node_ptr->index);
-
+	_remove_node_from_all_bitmaps(node_ptr);
 	_remove_node_from_features(node_ptr);
 	gres_node_remove(node_ptr);
 

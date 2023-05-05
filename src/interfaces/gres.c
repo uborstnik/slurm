@@ -4561,6 +4561,7 @@ extern int gres_node_state_unpack(List *gres_list, buf_t *buffer,
 
 	while ((rc == SLURM_SUCCESS) && (rec_cnt)) {
 		uint32_t tmp_uint32;
+		uint32_t full_config_flags = 0;
 		slurm_gres_context_t *gres_ctx;
 		if ((buffer == NULL) || (remaining_buf(buffer) == 0))
 			break;
@@ -4631,6 +4632,9 @@ extern int gres_node_state_unpack(List *gres_list, buf_t *buffer,
 				bit_alloc(gres_bitmap_size);
 		}
 
+		/* We don't want to lose flags from gres_ctx */
+		full_config_flags = gres_ctx->config_flags;
+
 		/*
 		 * Flag this as flags read from state so we only use them until
 		 * the node checks in.
@@ -4641,6 +4645,7 @@ extern int gres_node_state_unpack(List *gres_list, buf_t *buffer,
 			gres_ctx, GRES_STATE_SRC_CONTEXT_PTR,
 			GRES_STATE_TYPE_NODE, gres_ns);
 		list_append(*gres_list, gres_state_node);
+		gres_ctx->config_flags |= full_config_flags;
 	}
 	slurm_mutex_unlock(&gres_context_lock);
 	return rc;
@@ -6400,6 +6405,7 @@ static gres_job_state_t *_job_state_dup_common(gres_job_state_t *gres_js)
 	new_gres_js->cpus_per_gres = gres_js->cpus_per_gres;
 	new_gres_js->def_cpus_per_gres = gres_js->def_cpus_per_gres;
 	new_gres_js->def_mem_per_gres = gres_js->def_mem_per_gres;
+	new_gres_js->flags = gres_js->flags;
 	new_gres_js->gres_per_job = gres_js->gres_per_job;
 	new_gres_js->gres_per_node = gres_js->gres_per_node;
 	new_gres_js->gres_per_socket = gres_js->gres_per_socket;
@@ -6433,6 +6439,15 @@ extern void *gres_job_state_dup(gres_job_state_t *gres_js)
 		memcpy(new_gres_js->gres_cnt_node_alloc,
 		       gres_js->gres_cnt_node_alloc, i);
 	}
+	if (gres_js->gres_cnt_step_alloc) {
+		new_gres_js->gres_cnt_step_alloc = xcalloc(
+			gres_js->node_cnt,
+			sizeof(*new_gres_js->gres_cnt_step_alloc));
+		memcpy(new_gres_js->gres_cnt_step_alloc,
+		       gres_js->gres_cnt_step_alloc,
+		       (sizeof(*new_gres_js->gres_cnt_step_alloc) *
+			gres_js->node_cnt));
+	}
 	if (gres_js->gres_bit_alloc) {
 		new_gres_js->gres_bit_alloc = xcalloc(gres_js->node_cnt,
 						      sizeof(bitstr_t *));
@@ -6441,6 +6456,16 @@ extern void *gres_job_state_dup(gres_job_state_t *gres_js)
 				continue;
 			new_gres_js->gres_bit_alloc[i] =
 				bit_copy(gres_js->gres_bit_alloc[i]);
+		}
+	}
+	if (gres_js->gres_bit_step_alloc) {
+		new_gres_js->gres_bit_step_alloc = xcalloc(gres_js->node_cnt,
+							   sizeof(bitstr_t *));
+		for (i = 0; i < gres_js->node_cnt; i++) {
+			if (!gres_js->gres_bit_step_alloc[i])
+				continue;
+			new_gres_js->gres_bit_step_alloc[i] =
+				bit_copy(gres_js->gres_bit_step_alloc[i]);
 		}
 	}
 
@@ -8928,9 +8953,15 @@ static int _assign_gres_to_task(cpu_set_t *task_cpu_set, int ntasks_per_gres,
 			best_slot = bit_ffs_from_bit(gres_slots, start);
 	}
 	list_iterator_destroy(iter);
-	bit_clear(gres_slots, best_slot);
 	FREE_NULL_BITMAP(task_cpus_bitmap);
-	return (best_slot / ntasks_per_gres);
+
+	if (best_slot != -1) {
+		bit_clear(gres_slots, best_slot);
+		return (best_slot / ntasks_per_gres);
+	} else {
+		log_flag(GRES, "%s Can't find free slot", __func__);
+		return -1;
+	}
 }
 
 /*
@@ -8946,9 +8977,10 @@ static bitstr_t *_get_single_usable_gres(int context_inx,
 	int idx = 0;
 	bitstr_t *usable_gres = NULL;
 	bitstr_t *gres_slots = NULL;
+	int32_t gres_count = bit_set_count(gres_bit_alloc);
 
 	/* No need to select gres if there is only 1 to use */
-	if (bit_set_count(gres_bit_alloc) <= 1) {
+	if (gres_count <= 1) {
 		log_flag(GRES, "%s: (task %d) No need to select single gres since count is 0 or 1",
 			 __func__, local_proc_id);
 		return bit_copy(gres_bit_alloc);;
@@ -8986,6 +9018,14 @@ static bitstr_t *_get_single_usable_gres(int context_inx,
 
 	/* Return a bitmap with this as the only usable GRES */
 	usable_gres = bit_alloc(bit_size(gres_bit_alloc));
+	if (idx < 0) {
+		int n;
+		error("%s Can't find free slot for local_proc_id = %d, continue using block distribution",
+		     __func__, local_proc_id);
+		n = local_proc_id % gres_count;
+		idx = bit_get_bit_num(gres_bit_alloc, n);
+	}
+
 	bit_set(usable_gres, idx);
 
 	if (slurm_conf.debug_flags & DEBUG_FLAG_GRES){
@@ -9326,7 +9366,7 @@ static int _get_usable_gres(char *gres_name, int context_inx, int proc_id,
 		error("Bind request %s does not specify any devices within the allocation for task %d. Binding to the first device in the allocation instead.",
 		      tres_bind->request, proc_id);
 		if (!get_devices && gres_use_local_device_index())
-			bit_set(usable_gres,0);
+			bit_set(usable_gres, 0);
 		else
 			bit_set(usable_gres, bit_ffs(gres_bit_alloc));
 

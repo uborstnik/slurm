@@ -1,4 +1,4 @@
-.TH "slurm.conf" "5" "Slurm Configuration File" "March 2023" "Slurm Configuration File"
+.TH "slurm.conf" "5" "Slurm Configuration File" "May 2023" "Slurm Configuration File"
 
 .SH "NAME"
 slurm.conf \- Slurm configuration file
@@ -199,6 +199,8 @@ its resource allocation will be accounted for as either "gres/gpu:tesla" or
 allocated to the job and the GPUs allocated to the job could be heterogeneous.
 In an environment containing various GPU types, use of a job_submit plugin
 may be desired in order to force jobs to explicitly specify some GPU type.
+
+\fBNOTE\fR: Setting gres/gpu will also set gres/gpumem and gres/gpuutil.
 .IP
 
 .TP
@@ -1119,7 +1121,7 @@ Also see \fBDefMemPerGPU\fR, \fBDefMemPerNode\fR and \fBMaxMemPerCPU\fR.
 mutually exclusive.
 
 
-\fBNOTE:\fR This applies to \fBusable\fR allocated CPUs in a job allocation.
+\fBNOTE\fR: This applies to \fBusable\fR allocated CPUs in a job allocation.
 This is important when more than one thread per core is configured.
 If a job requests \-\-threads\-per\-core with fewer threads on a core than
 exist on the core (or \-\-hint=nomultithread which implies
@@ -1252,7 +1254,8 @@ AllowGroups, AllowQOS, and QOS usage threshold.
 Fully qualified pathname of a script to execute as user root on every
 node when a user's job completes (e.g. "/usr/local/slurm/epilog"). A
 glob pattern (See \fBglob\fR (7)) may also be used to run more than
-one epilog script (e.g. "/etc/slurm/epilog.d/*"). The Epilog script
+one epilog script (e.g. "/etc/slurm/epilog.d/*").  When more than one epilog
+script is configured, they are executed in reverse order. The Epilog script
 or scripts may be used to purge files, disable user login, etc.
 By default there is no epilog.
 See \fBProlog and Epilog Scripts\fR for more information.
@@ -1549,7 +1552,7 @@ is provided by cgroups for virtual memory size ('vsize').
 In order to use the \fBsstat\fR tool "jobacct_gather/linux",
 or "jobacct_gather/cgroup" must be configured.
 .br
-\fBNOTE:\fR Changing this configuration parameter changes the contents of
+\fBNOTE\fR: Changing this configuration parameter changes the contents of
 the messages between Slurm daemons. Any previously running job steps are
 managed by a slurmstepd daemon that will persist through the lifetime of
 that job step and not change its communication protocol. Only change this
@@ -2654,7 +2657,7 @@ the two options comma separated (e.g. \fBPreemptMode=SUSPEND,GANG\fR).
 See <https://slurm.schedmd.com/preempt.html> and
 <https://slurm.schedmd.com/gang_scheduling.html> for more details.
 
-\fBNOTE:\fR
+\fBNOTE\fR:
 For performance reasons, the backfill scheduler reserves whole nodes for jobs,
 not partial nodes. If during backfill scheduling a job preempts one or more
 other jobs, the whole nodes for those preempted jobs are reserved for the
@@ -2663,7 +2666,7 @@ These reserved nodes aren't available to other jobs during that backfill
 cycle, even if the other jobs could fit on the nodes. Therefore, jobs may
 preempt more resources during a single backfill iteration than they requested.
 .br
-\fBNOTE:\fR
+\fBNOTE\fR:
 For heterogeneous job to be considered for preemption all components
 must be eligible for preemption. When a heterogeneous job is to be preempted
 the first identified component of the job with the highest order PreemptMode
@@ -2689,9 +2692,10 @@ The preempted job will be cancelled.
 .TP
 \fBGANG\fR
 Enables gang scheduling (time slicing) of jobs in the same partition, and
-allows the resuming of suspended jobs.
+allows the resuming of suspended jobs. In order to use gang scheduling, the
+\fBGANG\fR option must be specified at the cluster level.
 
-\fBNOTE:\fR
+\fBNOTE\fR:
 Gang scheduling is performed independently for each partition, so
 if you only want time\-slicing by \fBOverSubscribe\fR, without any preemption,
 then configuring partitions with overlapping nodes is not recommended.
@@ -2699,10 +2703,11 @@ On the other hand, if you want to use \fBPreemptType=preempt/partition_prio\fR
 to allow jobs from higher PriorityTier partitions to Suspend jobs from lower
 PriorityTier partitions you will need overlapping partitions, and
 \fBPreemptMode=SUSPEND,GANG\fR to use the Gang scheduler to resume the suspended
-jobs(s).
+jobs(s). You must configure the partition's \fIOverSubscribe\fR setting to
+\fIFORCE\fR for all partitions in which time\-slicing is to take place.
 In any case, time\-slicing won't happen between jobs on different partitions.
 
-\fBNOTE:\fR
+\fBNOTE\fR:
 Heterogeneous jobs are excluded from GANG scheduling operations.
 .IP
 
@@ -2727,13 +2732,13 @@ the Gang scheduler (time\-slicing). If not (i.e. if the preemptees and preemptor
 are on different partitions) then the preempted jobs will remain suspended until
 the preemptor ends.
 
-\fBNOTE:\fR Because gang scheduling is performed independently for each
+\fBNOTE\fR: Because gang scheduling is performed independently for each
 partition, if using \fBPreemptType=preempt/partition_prio\fR then jobs in
 higher PriorityTier partitions will suspend jobs in lower PriorityTier
 partitions to run on the released resources. Only when the preemptor job ends
 will the suspended jobs will be resumed by the Gang scheduler.
 .br
-\fBNOTE:\fR Suspended jobs will not release GRES. Higher priority jobs will not
+\fBNOTE\fR: Suspended jobs will not release GRES. Higher priority jobs will not
 be able to preempt to gain access to GRES.
 .IP
 
@@ -3257,14 +3262,16 @@ Fully qualified pathname of a program for the slurmd to execute
 whenever it is asked to run a job step from a new job allocation (e.g.
 "/usr/local/slurm/prolog"). A glob pattern (See \fBglob\fR (7)) may
 also be used to specify more than one program to run (e.g.
-"/etc/slurm/prolog.d/*"). The slurmd executes the prolog before starting
+"/etc/slurm/prolog.d/*"). When more than one prolog script is configured,
+they are executed in reverse order.
+The slurmd executes the prolog before starting
 the first job step.  The prolog script or scripts may be used to purge files,
 enable user login, etc.  By default there is no prolog. Any configured script
 is expected to complete execution quickly (in less time than
 \fBMessageTimeout\fR).
 If the prolog fails (returns a non\-zero exit code), this will result in the
-node being set to a DRAIN state and the job being requeued in a held state,
-unless \fBnohold_on_prolog_fail\fR is configured in
+node being set to a DRAIN state and the job being requeued. The job will be
+placed in a held state, unless \fBnohold_on_prolog_fail\fR is configured in
 \fBSchedulerParameters\fR.
 See \fBProlog and Epilog Scripts\fR for more information.
 .IP
@@ -3543,7 +3550,7 @@ data.
 .IP
 
 .TP
-\KeepPowerSaveSettings\fR
+\fBKeepPowerSaveSettings\fR
 If set, an "scontrol reconfig" command will preserve the current state of
 SuspendExcNodes, SuspendExcParts and SuspendExcStates.
 .IP
@@ -4699,7 +4706,7 @@ Setting a value for \fBDefMemPerCPU\fR is strongly recommended.
 .IP
 
 .TP
-\fBNOTE:\fR If memory isn't configured as a consumable resource (CR_CPU,
+\fBNOTE\fR: If memory isn't configured as a consumable resource (CR_CPU,
 CR_Core or CR_Socket without _Memory) memory can be oversubscribed and will not
 be constrained by task/cgroup even if it is configured in cgroup.conf. In this
 case the \fI--mem\fR option is only used to filter out nodes with lower
@@ -5715,13 +5722,13 @@ The default value is "task/none".
 .IP
 
 .RS
-\fBNOTE:\fR It is recommended to stack \fBtask/cgroup,task/affinity\fR together
+\fBNOTE\fR: It is recommended to stack \fBtask/cgroup,task/affinity\fR together
 when configuring TaskPlugin, and setting \fBConstrainCores=yes\fR in
 \fBcgroup.conf\fR. This setup uses the task/affinity plugin for setting the
 cpu mask for tasks and uses the task/cgroup plugin to fence tasks into the
 allocated cpus.
 
-\fBNOTE:\fR For CRAY systems only: task/cgroup must be used with task/cray_aries
+\fBNOTE\fR: For CRAY systems only: task/cgroup must be used with task/cray_aries
 in TaskPlugin. For CRAY systems a configuration like this is recommended:
 .nf
 TaskPlugin=task/cray_aries,task/cgroup,task/affinity
@@ -6553,7 +6560,7 @@ On computers where frontend nodes are used to execute batch scripts rather than
 compute nodes, one may configure one or more frontend nodes using the
 configuration parameters defined below. These options are very similar to those
 used in configuring compute nodes. These options may only be used on systems
-configured and built with the appropriate parameters (\-\-have\-front\-end).
+configured and built with the appropriate parameters (\-\-enable\-front\-end).
 The front end configuration specifies the following information:
 
 .TP
@@ -6710,7 +6717,7 @@ one line (duplicate partition name records will be ignored).
 If a partition that is in use is deleted from the configuration and slurm
 is restarted or reconfigured (scontrol reconfigure), jobs using the partition
 are canceled.
-\fBNOTE:\fR Put all parameters for each partition on a single line.
+\fBNOTE\fR: Put all parameters for each partition on a single line.
 Each line of partition configuration information should
 represent a different partition.
 The partition configuration file contains the following information:
@@ -6729,7 +6736,7 @@ The default value is "ALL".
 Comma\-separated list of accounts which may execute jobs in the partition.
 The default value is "ALL". This list is also hierarchical, meaning subaccounts
 are included automatically.
-\fBNOTE:\fR If AllowAccounts is used then DenyAccounts will not be enforced.
+\fBNOTE\fR: If AllowAccounts is used then DenyAccounts will not be enforced.
 Also refer to DenyAccounts.
 .IP
 
@@ -6753,7 +6760,7 @@ about this partition by default. However, this should not be treated as a
 security mechanism, since job information will be returned if a user requests
 details about the partition or a specific job. See the \fBPrivateData\fR
 parameter to restrict access to job information.
-\fBNOTE:\fR For performance reasons, Slurm maintains a list of user IDs
+\fBNOTE\fR: For performance reasons, Slurm maintains a list of user IDs
 allowed to use each partition and this is checked at job submission time.
 This list of user IDs is updated when the \fBslurmctld\fR daemon is restarted,
 reconfigured (e.g. "scontrol reconfig") or the partition's \fBAllowGroups\fR
@@ -6770,7 +6777,7 @@ Comma\-separated list of Qos which may execute jobs in the partition.
 Jobs executed as user root can use any partition without regard to
 the value of AllowQos.
 The default value is "ALL".
-\fBNOTE:\fR If AllowQos is used then DenyQos will not be enforced.
+\fBNOTE\fR: If AllowQos is used then DenyQos will not be enforced.
 Also refer to DenyQos.
 .IP
 
@@ -6851,7 +6858,7 @@ exclusive.
 Comma\-separated list of accounts which may not execute jobs in the partition.
 By default, no accounts are denied access. This list is also hierarchical,
 meaning subaccounts are included automatically.
-\fBNOTE:\fR If AllowAccounts is used then DenyAccounts will not be enforced.
+\fBNOTE\fR: If AllowAccounts is used then DenyAccounts will not be enforced.
 Also refer to AllowAccounts.
 .IP
 
@@ -6859,7 +6866,7 @@ Also refer to AllowAccounts.
 \fBDenyQos\fR
 Comma\-separated list of Qos which may not execute jobs in the partition.
 By default, no QOS are denied access
-\fBNOTE:\fR If AllowQos is used then DenyQos will not be enforced.
+\fBNOTE\fR: If AllowQos is used then DenyQos will not be enforced.
 Also refer AllowQos.
 .IP
 
@@ -7122,16 +7129,28 @@ default values and not a reinitialize the default values.
 
 .TP
 \fBPowerDownOnIdle\fR
-If set to "YES", then nodes allocated from this partition will immediately be
-requested to power down upon becoming IDLE. A power down request prevents
-further scheduling to the node until it has been put into power save mode by
-\fBSuspendProgram\fR.
-
-\fBNOTE:\fR
-This option requires power_save to be enabled to function. Otherwise it will be
-ignored, as if set to "NO", until power_save is enabled.
+If set to "YES" and power saving is enabled for the partition, then nodes
+allocated from this partition will be requested to power down after being
+allocated at least one job.
+These nodes will not power down until they transition from COMPLETING to IDLE.
+If set to "NO" then power saving will operate as configured for the partition.
+The default value is "NO".
 See <https://slurm.schedmd.com/power_save.html> and
 <https://slurm.schedmd.com/elastic_computing.html> for more details.
+
+\fBNOTE\fR:
+The following will cause a transition from COMPLETING to IDLE:
+.br
+Completing all running jobs without additional jobs being allocated.
+.br
+ExclusiveUser=YES and after all running jobs complete but before another user's
+job is allocated.
+.br
+OverSubscribe=EXCLUSIVE and after the running job completes but before another
+job is allocated.
+
+\fBNOTE\fR:
+Nodes are still subject to powering down when being IDLE for \fBSuspendTime\fR.
 
 Also see \fBSuspendTime\fR.
 .IP
@@ -7155,7 +7174,7 @@ the two options comma separated (e.g. \fBPreemptMode=SUSPEND,GANG\fR).
 See <https://slurm.schedmd.com/preempt.html> and
 <https://slurm.schedmd.com/gang_scheduling.html> for more details.
 
-\fBNOTE:\fR
+\fBNOTE\fR:
 For performance reasons, the backfill scheduler reserves whole nodes for jobs,
 not partial nodes. If during backfill scheduling a job preempts one or more
 other jobs, the whole nodes for those preempted jobs are reserved for the
@@ -7164,7 +7183,7 @@ These reserved nodes aren't available to other jobs during that backfill
 cycle, even if the other jobs could fit on the nodes. Therefore, jobs may
 preempt more resources during a single backfill iteration than they requested.
 .br
-\fBNOTE:\fR
+\fBNOTE\fR:
 For heterogeneous job to be considered for preemption all components
 must be eligible for preemption. When a heterogeneous job is to be preempted
 the first identified component of the job with the highest order PreemptMode
@@ -7192,7 +7211,7 @@ The preempted job will be cancelled.
 Enables gang scheduling (time slicing) of jobs in the same partition, and
 allows the resuming of suspended jobs.
 
-\fBNOTE:\fR
+\fBNOTE\fR:
 Gang scheduling is performed independently for each partition, so
 if you only want time\-slicing by \fBOverSubscribe\fR, without any preemption,
 then configuring partitions with overlapping nodes is not recommended.
@@ -7203,7 +7222,7 @@ PriorityTier partitions you will need overlapping partitions, and
 jobs(s).
 In any case, time\-slicing won't happen between jobs on different partitions.
 .br
-\fBNOTE:\fR
+\fBNOTE\fR:
 Heterogeneous jobs are excluded from GANG scheduling operations.
 .IP
 
@@ -7225,13 +7244,13 @@ memory resources to be able to suspend jobs.
 If the preemptees and preemptor are on different partitions then the preempted
 jobs will remain suspended until the preemptor ends.
 .br
-\fBNOTE:\fR Because gang scheduling is performed independently for each
+\fBNOTE\fR: Because gang scheduling is performed independently for each
 partition, if using \fBPreemptType=preempt/partition_prio\fR then jobs in
 higher PriorityTier partitions will suspend jobs in lower PriorityTier
 partitions to run on the released resources. Only when the preemptor job ends
 will the suspended jobs will be resumed by the Gang scheduler.
 .br
-\fBNOTE:\fR Suspended jobs will not release GRES. Higher priority jobs will not
+\fBNOTE\fR: Suspended jobs will not release GRES. Higher priority jobs will not
 be able to preempt to gain access to GRES.
 .RE
 .IP
@@ -7260,7 +7279,7 @@ Used to extend the limits available to a QOS on a partition.  Jobs will not be
 associated to this QOS outside of being associated to the partition.  They
 will still be associated to their requested QOS.
 By default, no QOS is used.
-\fBNOTE:\fR If a limit is set in both the Partition's QOS and the Job's QOS
+\fBNOTE\fR: If a limit is set in both the Partition's QOS and the Job's QOS
 the Partition QOS will be honored unless the Job's QOS has the
 \fBOverPartQOS\fR flag set in which the Job's QOS will have priority.
 .IP
@@ -7413,7 +7432,7 @@ will be MAX(1*1.0, 8*0.25) + (0*2.0) = 2.0.
 If TRESBillingWeights is not defined then the job is billed against the total
 number of allocated CPUs.
 
-\fBNOTE:\fR TRESBillingWeights doesn't affect job priority directly as it is
+\fBNOTE\fR: TRESBillingWeights doesn't affect job priority directly as it is
 currently not used for the size of the job. If you want TRES' to play a role in
 the job's priority then refer to the PriorityWeightTRES option.
 .RE
@@ -7444,8 +7463,8 @@ node being set to a DRAIN state.
 If the EpilogSlurmctld fails (returns a non\-zero exit code), this will only
 be logged.
 If the Prolog fails (returns a non\-zero exit code), this will result in the
-node being set to a DRAIN state and the job being requeued in a held state
-unless \fBnohold_on_prolog_fail\fR is configured in
+node being set to a DRAIN state and the job being requeued. The job will be
+placed in a held state unless \fBnohold_on_prolog_fail\fR is configured in
 \fBSchedulerParameters\fR.
 If the PrologSlurmctld fails (returns a non\-zero exit code), this will result
 in the job being requeued to be executed on another node if possible. Only
